@@ -1,32 +1,46 @@
-package config
+package configcommand
 
 import (
 	"fmt"
+	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"log"
+	"totalcmd/util"
 )
 
-var configOutPath string
 var shouldSave bool
 
-var ConfigCmd = &cobra.Command{
+var RootCmd = &cobra.Command{
 	Use:   "config",
 	Short: "Thùy chỉnh, hiện thị các config",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if configOutPath != "" {
-			return writeConfig(configOutPath)
-		}
-
 		if shouldSave {
-			configPath, err := saveConfig()
-			if err != nil {
+			configOutPath := getDefaultConfigPath()
+			if err := viper.WriteConfigAs(configOutPath); err != nil {
 				return err
 			}
-			fmt.Printf("Configs was save to: %s\n", configPath)
+			fmt.Printf("Configs was save to: %s\n", configOutPath)
 			return nil
 		}
 		return printConfig()
 	},
+}
+
+func init() {
+	RootCmd.Flags().BoolVar(&shouldSave, "save", false, "save config to default path")
+}
+
+func getDefaultConfigPath() string{
+	defaultPath := viper.ConfigFileUsed()
+	if defaultPath == "" {
+		homedirPath, err := homedir.Dir()
+		if err != nil {
+			log.Fatalln(err)
+		}
+		defaultPath = homedirPath + "/" + util.CfgFileName + ".yml"
+	}
+	return defaultPath
 }
 
 func printConfig() error {
@@ -35,20 +49,4 @@ func printConfig() error {
 		fmt.Printf("%s: %v\n", key, value)
 	}
 	return nil
-}
-
-func writeConfig(configPath string) error {
-	return viper.WriteConfigAs(configPath)
-}
-
-func saveConfig() (string, error) {
-	if err := viper.WriteConfig(); err != nil {
-		return "", err
-	}
-	return viper.ConfigFileUsed(), nil
-}
-
-func init() {
-	ConfigCmd.Flags().BoolVar(&shouldSave, "save", false, "save current config")
-	ConfigCmd.Flags().StringVar(&configOutPath, "out", "", "file path to write config to")
 }
